@@ -3,21 +3,27 @@ import { create } from 'zustand';
 import { ImportRow } from '@/types/import';
 import { nanoid } from 'nanoid';
 
+interface ErrorEntry {
+  row: number;
+  field: string;
+  msg: string;
+}
+
 interface ImportState {
   headers: string[];
   rows: ImportRow[];
   progress: number;
   totalRows: number;
   isParsing: boolean;
-  errorMap: Record<string, { row: number; field: string; msg: string }[]>;
-  
-  setImportData: (headers: string[], rawRows: any[][]) => void;
+  errorMap: Record<string, ErrorEntry[]>;
+
+  setImportData: (headers: string[], rawRows: any[][], totalRows?: number) => void;
   updateCell: (rowId: string, field: string, value: any) => void;
   addRow: () => void;
   deleteRow: (rowId: string) => void;
   setRowStatus: (rowId: string, status: ImportRow['status']) => void;
   setErrors: (rowId: string, field: string, msg: string | null) => void;
-  validateAll: () => void;
+  validateAll: (existingCodes?: Set<string>) => void;
   setProgress: (progress: number) => void;
   setParsing: (isParsing: boolean) => void;
   clearImport: () => void;
@@ -27,14 +33,15 @@ export const useImportStore = create<ImportState>((set, get) => ({
   headers: [],
   rows: [],
   progress: 0,
+  totalRows: 0,
   isParsing: false,
   errorMap: {},
 
-  setImportData: (headers, rawRows) => {
+  setImportData: (headers, rawRows, total) => {
     const rows: ImportRow[] = rawRows.map((rawRow) => {
       const data: Record<string, any> = {};
       headers.forEach((header, index) => {
-        data[header] = rawRow[index];
+        data[header] = rawRow[index] ?? '';
       });
       return {
         id: nanoid(),
@@ -43,7 +50,7 @@ export const useImportStore = create<ImportState>((set, get) => ({
         status: 'pending',
       };
     });
-    set({ headers, rows, totalRows: rows.length, progress: 100, isParsing: false });
+    set({ headers, rows, totalRows: total ?? rows.length, progress: 100, isParsing: false });
     get().validateAll();
   },
 
@@ -82,51 +89,72 @@ export const useImportStore = create<ImportState>((set, get) => ({
     }));
   },
 
-  validateAll: () => {
-    const { rows, headers } = get();
+  validateAll: (existingCodes?: Set<string>) => {
+    const { rows } = get();
+    // Use dynamic require to avoid circular deps in Zustand
     const { genericImportSchema } = require('@/schemas/import-schema');
-    const newErrorMap: Record<string, { row: number; field: string; msg: string }[]> = {};
-    const seenCodes = new Map<string, number>();
+
+    const newErrorMap: Record<string, ErrorEntry[]> = {};
+    const seenCodes = new Map<string, number>(); // code → first row number
 
     const validatedRows = rows.map((row, idx) => {
       const errors: Record<string, string> = {};
       const rowNum = idx + 1;
 
-      // Schema validation
-      try {
-        genericImportSchema.parse(row.data);
-      } catch (e: any) {
-        if (e.errors) {
-          e.errors.forEach((err: any) => {
-            const field = err.path[0] as string;
+      // 1. Zod schema validation — collect ALL errors at once
+      const result = genericImportSchema.safeParse(row.data);
+      if (!result.success) {
+        result.error.errors.forEach((err: any) => {
+          const field = err.path[0] as string;
+          if (field && !errors[field]) {   // first error per field wins
             errors[field] = err.message;
             if (!newErrorMap[row.id]) newErrorMap[row.id] = [];
             newErrorMap[row.id].push({ row: rowNum, field, msg: err.message });
-          });
+          }
+        });
+      }
+
+      // 2. In-batch duplicate detection
+      const code = row.data.externalCode;
+      if (code && String(code).trim() !== '') {
+        const codeStr = String(code).trim();
+        if (seenCodes.has(codeStr)) {
+          const firstRow = seenCodes.get(codeStr)!;
+          const msg = `与第 ${firstRow} 行的外部编码重复`;
+          errors['externalCode'] = msg;
+          if (!newErrorMap[row.id]) newErrorMap[row.id] = [];
+          // Avoid duplicating same error
+          const alreadyHas = newErrorMap[row.id].some(e => e.field === 'externalCode');
+          if (!alreadyHas) {
+            newErrorMap[row.id].push({ row: rowNum, field: 'externalCode', msg });
+          }
+        } else {
+          seenCodes.set(codeStr, rowNum);
         }
       }
 
-      // Duplicate detection (Internal)
-      const code = row.data.externalCode;
-      if (code) {
-        if (seenCodes.has(code)) {
-          const msg = `与第 ${seenCodes.get(code)} 行编码重复`;
+      // 3. Database existing codes check (if provided)
+      if (existingCodes && code) {
+        const codeStr = String(code).trim();
+        if (existingCodes.has(codeStr) && !errors['externalCode']) {
+          const msg = '该外部编码已存在于数据库（历史数据重复）';
           errors['externalCode'] = msg;
           if (!newErrorMap[row.id]) newErrorMap[row.id] = [];
           newErrorMap[row.id].push({ row: rowNum, field: 'externalCode', msg });
-        } else {
-          seenCodes.set(code, rowNum);
         }
       }
 
-      return { ...row, errors, status: Object.keys(errors).length > 0 ? 'invalid' : 'valid' };
+      return {
+        ...row,
+        errors,
+        status: (Object.keys(errors).length > 0 ? 'invalid' : 'valid') as ImportRow['status'],
+      };
     });
 
     set({ rows: validatedRows, errorMap: newErrorMap });
   },
 
   setErrors: (rowId, field, msg) => {
-    // This is now legacy since validateAll handles it, but kept for compatibility or fine-grained updates
     set((state) => {
       const newRows = state.rows.map((row) => {
         if (row.id === rowId) {
@@ -143,5 +171,5 @@ export const useImportStore = create<ImportState>((set, get) => ({
 
   setProgress: (progress) => set({ progress }),
   setParsing: (isParsing) => set({ isParsing }),
-  clearImport: () => set({ headers: [], rows: [], progress: 0, errorMap: {} }),
+  clearImport: () => set({ headers: [], rows: [], progress: 0, totalRows: 0, errorMap: {} }),
 }));
