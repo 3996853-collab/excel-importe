@@ -8,7 +8,7 @@ import {
   flexRender,
   ColumnDef,
 } from '@tanstack/react-table';
-import { useImportStore } from '@/store/useImportStore';
+import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import {
   Table,
@@ -23,63 +23,65 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from '@/components/ui/tooltip';
-import { AlertCircle } from 'lucide-react';
+import { AlertCircle, Trash2, Plus } from 'lucide-react';
 import { genericImportSchema } from '@/schemas/import-schema';
 
 export function DataGrid() {
-  const { rows, headers, updateCell, setErrors } = useImportStore();
+  const { rows, headers, updateCell, validateAll, addRow, deleteRow } = useImportStore();
 
   const columns = useMemo<ColumnDef<any>[]>(() => {
-    return headers.map((header) => ({
-      accessorKey: header,
-      header: header,
-      cell: ({ row, column, getValue }) => {
-        const value = getValue();
-        const rowId = (row.original as any).id;
-        const error = (row.original as any).errors[header];
-
-        return (
-          <div className="relative group">
-            <EditableCell
-              value={value}
-              onBlur={(val) => {
-                updateCell(rowId, header, val);
-                validateCell(rowId, header, val);
-              }}
-              hasError={!!error}
-            />
-            {error && (
-              <Tooltip>
-                <TooltipTrigger>
-                  <div className="absolute right-2 top-1/2 -translate-y-1/2 text-destructive cursor-help">
-                    <AlertCircle className="w-4 h-4" />
-                  </div>
-                </TooltipTrigger>
-                <TooltipContent side="top">
-                  <p>{error}</p>
-                </TooltipContent>
-              </Tooltip>
-            )}
-          </div>
-        );
+    const cols: ColumnDef<any>[] = [
+      {
+        id: 'actions',
+        header: '操作',
+        cell: ({ row }) => (
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-8 w-8 text-destructive"
+            onClick={() => deleteRow((row.original as any).id)}
+          >
+            <Trash2 className="h-4 w-4" />
+          </Button>
+        ),
       },
-    }));
-  }, [headers, updateCell]);
+      ...headers.map((header) => ({
+        accessorKey: header,
+        header: header,
+        cell: ({ row, column, getValue }) => {
+          const value = getValue();
+          const rowId = (row.original as any).id;
+          const error = (row.original as any).errors[header];
 
-  const validateCell = (rowId: string, field: string, value: any) => {
-    // Attempt validation for the specific field if it exists in schema
-    try {
-      const fieldSchema = (genericImportSchema.shape as any)[field];
-      if (fieldSchema) {
-        fieldSchema.parse(value);
-        setErrors(rowId, field, null);
-      }
-    } catch (e: any) {
-      if (e.errors && e.errors[0]) {
-        setErrors(rowId, field, e.errors[0].message);
-      }
-    }
-  };
+          return (
+            <div className="relative group">
+              <EditableCell
+                value={value}
+                onBlur={(val) => {
+                  updateCell(rowId, header, val);
+                  validateAll();
+                }}
+                hasError={!!error}
+              />
+              {error && (
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <div className="absolute right-2 top-1/2 -translate-y-1/2 text-destructive cursor-help">
+                      <AlertCircle className="w-4 h-4" />
+                    </div>
+                  </TooltipTrigger>
+                  <TooltipContent side="top">
+                    <p>{error}</p>
+                  </TooltipContent>
+                </Tooltip>
+              )}
+            </div>
+          );
+        },
+      }))
+    ];
+    return cols;
+  }, [headers, updateCell, validateAll, deleteRow]);
 
   const table = useReactTable({
     data: rows,
@@ -88,34 +90,44 @@ export function DataGrid() {
   });
 
   return (
-    <div className="rounded-md border overflow-auto max-h-[600px]">
-      <Table className="relative">
-        <TableHeader className="sticky top-0 bg-secondary z-10">
-          {table.getHeaderGroups().map((headerGroup) => (
-            <TableRow key={headerGroup.id}>
-              {headerGroup.headers.map((header) => (
-                <TableHead key={header.id} className="whitespace-nowrap font-bold">
-                  {flexRender(
-                    header.column.columnDef.header,
-                    header.getContext()
-                  )}
-                </TableHead>
-              ))}
-            </TableRow>
-          ))}
-        </TableHeader>
-        <TableBody>
-          {table.getRowModel().rows.map((row) => (
-            <TableRow key={row.id}>
-              {row.getVisibleCells().map((cell) => (
-                <TableCell key={cell.id} className="p-0 border-r last:border-r-0">
-                  {flexRender(cell.column.columnDef.cell, cell.getContext())}
-                </TableCell>
-              ))}
-            </TableRow>
-          ))}
-        </TableBody>
-      </Table>
+    <div className="space-y-4">
+      <div className="rounded-md border overflow-auto max-h-[600px]">
+        <Table className="relative">
+          <TableHeader className="sticky top-0 bg-secondary z-20">
+            {table.getHeaderGroups().map((headerGroup) => (
+              <TableRow key={headerGroup.id}>
+                {headerGroup.headers.map((header) => (
+                  <TableHead key={header.id} className="whitespace-nowrap font-bold">
+                    {flexRender(
+                      header.column.columnDef.header,
+                      header.getContext()
+                    )}
+                  </TableHead>
+                ))}
+              </TableRow>
+            ))}
+          </TableHeader>
+          <TableBody>
+            {table.getRowModel().rows.map((row) => (
+              <TableRow key={row.id}>
+                {row.getVisibleCells().map((cell) => (
+                  <TableCell key={cell.id} className="p-0 border-r last:border-r-0">
+                    {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                  </TableCell>
+                ))}
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+      </div>
+      <Button 
+        variant="outline" 
+        className="w-full border-dashed" 
+        onClick={addRow}
+      >
+        <Plus className="w-4 h-4 mr-2" />
+        添加新行
+      </Button>
     </div>
   );
 }

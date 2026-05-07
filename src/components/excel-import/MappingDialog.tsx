@@ -31,15 +31,32 @@ export function MappingDialog({ headers, open, onConfirm }: MappingDialogProps) 
   const targetFields = Object.keys(genericImportSchema.shape);
 
   useEffect(() => {
-    // Attempt auto-mapping based on name similarity
+    const synonyms: Record<string, string[]> = {
+      receiverName: ['收货人', '收件人', '姓名', 'Receiver', 'Name', 'Customer'],
+      receiverPhone: ['电话', '手机', '联系方式', 'Phone', 'Mobile', 'Tel'],
+      externalCode: ['订单号', '外部编码', '编码', 'Order No', 'Code'],
+      weight: ['重量', '毛重', 'Weight', 'Wgt'],
+      quantity: ['件数', '数量', 'Quantity', 'Qty'],
+      temperature: ['温层', '温度', 'Temp', 'Temperature'],
+      address: ['地址', '收货地址', 'Address'],
+    };
+
     const initialMappings: Record<string, string> = {};
     headers.forEach((header) => {
-      const match = targetFields.find(
-        (field) => 
-          field.toLowerCase() === header.toLowerCase() ||
-          header.toLowerCase().includes(field.toLowerCase())
-      );
-      if (match) initialMappings[header] = match;
+      // 1. Exact match
+      const exactMatch = targetFields.find(f => f.toLowerCase() === header.toLowerCase());
+      if (exactMatch) {
+        initialMappings[header] = exactMatch;
+        return;
+      }
+
+      // 2. Synonym match
+      for (const [field, list] of Object.entries(synonyms)) {
+        if (list.some(s => header.toLowerCase().includes(s.toLowerCase()))) {
+          initialMappings[header] = field;
+          return;
+        }
+      }
     });
     setMappings(initialMappings);
   }, [headers]);
@@ -52,9 +69,9 @@ export function MappingDialog({ headers, open, onConfirm }: MappingDialogProps) 
     <Dialog open={open}>
       <DialogContent className="max-w-2xl">
         <DialogHeader>
-          <DialogTitle>Map Excel Columns</DialogTitle>
+          <DialogTitle>字段映射配置</DialogTitle>
           <p className="text-sm text-muted-foreground">
-            We couldn't fully recognize some columns. Please map them to the correct fields.
+            部分列名未被自动识别，请手动建立 Excel 列与系统字段的对应关系。
           </p>
         </DialogHeader>
 
@@ -67,10 +84,10 @@ export function MappingDialog({ headers, open, onConfirm }: MappingDialogProps) 
                 onValueChange={(val) => setMappings((prev) => ({ ...prev, [header]: val } as Record<string, string>))}
               >
                 <SelectTrigger>
-                  <SelectValue placeholder="Ignore this column" />
+                  <SelectValue placeholder="忽略此列" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="ignore">Ignore</SelectItem>
+                  <SelectItem value="ignore">忽略</SelectItem>
                   {targetFields.map((field) => (
                     <SelectItem key={field} value={field}>
                       {field}
@@ -83,7 +100,7 @@ export function MappingDialog({ headers, open, onConfirm }: MappingDialogProps) 
         </div>
 
         <DialogFooter>
-          <Button onClick={handleConfirm}>Start Import</Button>
+          <Button onClick={handleConfirm}>开始导入</Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>

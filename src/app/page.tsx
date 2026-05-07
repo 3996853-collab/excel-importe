@@ -14,13 +14,12 @@ export default function Home() {
       </div>
 
       <div className="relative flex flex-col items-center w-full">
-        <div className="text-center mb-12">
-          <h1 className="text-4xl lg:text-6xl font-extrabold tracking-tighter mb-4 bg-gradient-to-r from-primary to-primary/60 bg-clip-text text-transparent">
-            Import Anything.
+        <div className="flex flex-col space-y-2 mb-12 text-center">
+          <h1 className="text-4xl font-extrabold tracking-tight lg:text-5xl bg-gradient-to-r from-primary to-primary/50 bg-clip-text text-transparent">
+            万能 Excel 导入系统
           </h1>
-          <p className="text-muted-foreground text-lg lg:text-xl max-w-2xl mx-auto">
-            A high-performance Excel parsing engine with intelligent mapping, 
-            real-time validation, and seamless database integration.
+          <p className="text-muted-foreground text-lg">
+            支持智能模板识别、实时数据校验、批量编辑与历史追溯
           </p>
         </div>
 

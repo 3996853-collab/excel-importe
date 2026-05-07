@@ -85,16 +85,18 @@ export function FileUploader({ onFileParsed }: { onFileParsed: (headers: string[
         </div>
         
         <h3 className="text-xl font-semibold mb-2">
-          {isParsing ? 'Parsing Excel...' : 'Upload Excel File'}
+          {isParsing ? '正在解析 Excel...' : '上传 Excel 文件'}
         </h3>
         <p className="text-muted-foreground text-center">
-          Drag & drop your .xlsx or .csv file here, or click to browse
+          拖拽 .xlsx 或 .csv 文件到此处，或点击选择文件
         </p>
         
         {isParsing && (
           <div className="w-full mt-8 space-y-2">
             <Progress value={progress} className="h-2" />
-            <p className="text-xs text-center text-muted-foreground">{progress}% completed</p>
+            <p className="text-xs text-center text-muted-foreground">
+              正在解析... {progress}%
+            </p>
           </div>
         )}
       </div>

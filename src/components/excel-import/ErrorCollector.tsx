@@ -20,7 +20,7 @@ export function ErrorCollector() {
         <CardContent className="pt-6 flex items-center gap-3">
           <Info className="text-green-500 w-5 h-5" />
           <p className="text-sm font-medium text-green-700 dark:text-green-400">
-            No validation errors found. Data is ready for import.
+            未发现校验错误，数据可以提交。
           </p>
         </CardContent>
       </Card>
@@ -32,7 +32,7 @@ export function ErrorCollector() {
       <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
         <CardTitle className="text-sm font-bold flex items-center gap-2">
           <AlertTriangle className="w-4 h-4 text-destructive" />
-          Validation Errors
+          校验错误列表
         </CardTitle>
         <Badge variant="destructive">{totalErrors}</Badge>
       </CardHeader>
@@ -42,7 +42,7 @@ export function ErrorCollector() {
             {Object.entries(errorMap).map(([rowId, errors]) => (
               <div key={rowId} className="border-l-2 border-destructive pl-3 py-1">
                 <p className="text-xs font-semibold text-muted-foreground mb-1">
-                  Row {errors[0].row}
+                  第 {errors[0].row} 行
                 </p>
                 {errors.map((error, idx) => (
                   <div key={idx} className="flex items-start gap-2 text-sm">

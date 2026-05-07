@@ -37,7 +37,7 @@ export function ImportWorkflow() {
         return mapping && mapping.targetField !== 'ignore' ? mapping.targetField : h;
       });
       setImportData(mappedHeaders, rawRows);
-      toast.success('Recognized template applied!');
+      toast.success('已识别模板并自动应用！');
     } else {
       setPendingData({ headers: rawHeaders, rows: rawRows });
       setShowMapping(true);
@@ -60,11 +60,11 @@ export function ImportWorkflow() {
     
     setShowMapping(false);
     setPendingData(null);
-    toast.success('Template saved and applied!');
+    toast.success('映射关系已保存并应用！');
   };
 
   const handleClear = () => {
-    if (confirm('Are you sure you want to clear all data?')) {
+    if (confirm('确定要清除所有数据并重新上传吗？')) {
       clearImport();
     }
   };
@@ -78,18 +78,18 @@ export function ImportWorkflow() {
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, "Sheet1");
     XLSX.writeFile(wb, "exported_data.xlsx");
-    toast.success('File exported successfully!');
+    toast.success('数据已成功导出！');
   };
 
   const handleSubmit = async () => {
     if (hasErrors) {
-      toast.error('Please fix all validation errors before submitting.');
+      toast.error('请在提交前修复所有校验错误。');
       return;
     }
     
     setIsSubmitting(true);
     setSubmitProgress(10);
-    const loadingToast = toast.loading('Initiating sync...');
+    const loadingToast = toast.loading('正在同步至数据库...');
     
     try {
       // Simulate progress
@@ -104,19 +104,19 @@ export function ImportWorkflow() {
       setSubmitProgress(100);
 
       if (result.success) {
-        toast.success(`Successfully imported ${rows.length} records!`, { id: loadingToast });
+        toast.success(`成功导入 ${rows.length} 条记录！`, { id: loadingToast });
         setTimeout(() => {
             clearImport();
             setIsSubmitting(false);
             setSubmitProgress(0);
         }, 500);
       } else {
-        toast.error(`Import failed: ${result.error}`, { id: loadingToast });
+        toast.error(`导入失败: ${result.error}`, { id: loadingToast });
         setIsSubmitting(false);
         setSubmitProgress(0);
       }
     } catch (error) {
-      toast.error('An unexpected error occurred during import.', { id: loadingToast });
+      toast.error('同步过程中发生意外错误。', { id: loadingToast });
       setIsSubmitting(false);
       setSubmitProgress(0);
     }
@@ -145,22 +145,22 @@ export function ImportWorkflow() {
               <div className="flex items-center gap-4">
                 <Button variant="ghost" size="sm" onClick={handleClear} disabled={isSubmitting}>
                   <ArrowLeft className="w-4 h-4 mr-2" />
-                  Upload Different File
+                  返回重新上传
                 </Button>
-                <h2 className="text-2xl font-bold tracking-tight">Data Preview</h2>
+                <h2 className="text-2xl font-bold tracking-tight">数据预览</h2>
               </div>
               <div className="flex items-center gap-2">
                 <Button variant="outline" size="sm" onClick={handleExport} disabled={isSubmitting}>
                   <Download className="w-4 h-4 mr-2" />
-                  Export Modified
+                  导出修改后的数据
                 </Button>
                 <Button variant="outline" size="sm" onClick={handleClear} disabled={isSubmitting}>
                   <Trash2 className="w-4 h-4 mr-2 text-destructive" />
-                  Clear Data
+                  清空列表
                 </Button>
                 <Button size="sm" onClick={handleSubmit} disabled={hasErrors || isSubmitting}>
                   <Database className="w-4 h-4 mr-2" />
-                  Submit {rows.length} Records
+                  提交 {rows.length} 条记录
                 </Button>
               </div>
             </div>
@@ -168,7 +168,9 @@ export function ImportWorkflow() {
             {isSubmitting && (
               <div className="space-y-2">
                 <Progress value={submitProgress} className="h-2" />
-                <p className="text-xs text-center text-muted-foreground">Uploading data... {submitProgress}%</p>
+                <p className="text-xs text-center text-muted-foreground">
+                  正在同步至数据库... {submitProgress}% ({Math.round(rows.length * submitProgress / 100)}/{rows.length})
+                </p>
               </div>
             )}
 

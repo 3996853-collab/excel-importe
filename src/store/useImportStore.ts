@@ -7,19 +7,23 @@ interface ImportState {
   headers: string[];
   rows: ImportRow[];
   progress: number;
+  totalRows: number;
   isParsing: boolean;
   errorMap: Record<string, { row: number; field: string; msg: string }[]>;
   
   setImportData: (headers: string[], rawRows: any[][]) => void;
   updateCell: (rowId: string, field: string, value: any) => void;
+  addRow: () => void;
+  deleteRow: (rowId: string) => void;
   setRowStatus: (rowId: string, status: ImportRow['status']) => void;
   setErrors: (rowId: string, field: string, msg: string | null) => void;
+  validateAll: () => void;
   setProgress: (progress: number) => void;
   setParsing: (isParsing: boolean) => void;
   clearImport: () => void;
 }
 
-export const useImportStore = create<ImportState>((set) => ({
+export const useImportStore = create<ImportState>((set, get) => ({
   headers: [],
   rows: [],
   progress: 0,
@@ -39,7 +43,8 @@ export const useImportStore = create<ImportState>((set) => ({
         status: 'pending',
       };
     });
-    set({ headers, rows, progress: 100, isParsing: false });
+    set({ headers, rows, totalRows: rows.length, progress: 100, isParsing: false });
+    get().validateAll();
   },
 
   updateCell: (rowId, field, value) => {
@@ -50,6 +55,25 @@ export const useImportStore = create<ImportState>((set) => ({
     }));
   },
 
+  addRow: () => {
+    const { headers } = get();
+    const newRow: ImportRow = {
+      id: nanoid(),
+      data: headers.reduce((acc, h) => ({ ...acc, [h]: '' }), {}),
+      errors: {},
+      status: 'pending',
+    };
+    set((state) => ({ rows: [...state.rows, newRow] }));
+    get().validateAll();
+  },
+
+  deleteRow: (rowId) => {
+    set((state) => ({
+      rows: state.rows.filter((row) => row.id !== rowId),
+    }));
+    get().validateAll();
+  },
+
   setRowStatus: (rowId, status) => {
     set((state) => ({
       rows: state.rows.map((row) =>
@@ -58,40 +82,62 @@ export const useImportStore = create<ImportState>((set) => ({
     }));
   },
 
+  validateAll: () => {
+    const { rows, headers } = get();
+    const { genericImportSchema } = require('@/schemas/import-schema');
+    const newErrorMap: Record<string, { row: number; field: string; msg: string }[]> = {};
+    const seenCodes = new Map<string, number>();
+
+    const validatedRows = rows.map((row, idx) => {
+      const errors: Record<string, string> = {};
+      const rowNum = idx + 1;
+
+      // Schema validation
+      try {
+        genericImportSchema.parse(row.data);
+      } catch (e: any) {
+        if (e.errors) {
+          e.errors.forEach((err: any) => {
+            const field = err.path[0] as string;
+            errors[field] = err.message;
+            if (!newErrorMap[row.id]) newErrorMap[row.id] = [];
+            newErrorMap[row.id].push({ row: rowNum, field, msg: err.message });
+          });
+        }
+      }
+
+      // Duplicate detection (Internal)
+      const code = row.data.externalCode;
+      if (code) {
+        if (seenCodes.has(code)) {
+          const msg = `与第 ${seenCodes.get(code)} 行编码重复`;
+          errors['externalCode'] = msg;
+          if (!newErrorMap[row.id]) newErrorMap[row.id] = [];
+          newErrorMap[row.id].push({ row: rowNum, field: 'externalCode', msg });
+        } else {
+          seenCodes.set(code, rowNum);
+        }
+      }
+
+      return { ...row, errors, status: Object.keys(errors).length > 0 ? 'invalid' : 'valid' };
+    });
+
+    set({ rows: validatedRows, errorMap: newErrorMap });
+  },
+
   setErrors: (rowId, field, msg) => {
+    // This is now legacy since validateAll handles it, but kept for compatibility or fine-grained updates
     set((state) => {
       const newRows = state.rows.map((row) => {
         if (row.id === rowId) {
           const newErrors = { ...row.errors };
-          if (msg) {
-            newErrors[field] = msg;
-          } else {
-            delete newErrors[field];
-          }
+          if (msg) newErrors[field] = msg;
+          else delete newErrors[field];
           return { ...row, errors: newErrors };
         }
         return row;
       });
-
-      // Update aggregate error map
-      const rowIdx = state.rows.findIndex(r => r.id === rowId);
-      const newErrorMap = { ...state.errorMap };
-      if (msg) {
-          if (!newErrorMap[rowId]) newErrorMap[rowId] = [];
-          const existing = newErrorMap[rowId].find(e => e.field === field);
-          if (existing) {
-              existing.msg = msg;
-          } else {
-              newErrorMap[rowId].push({ row: rowIdx + 1, field, msg });
-          }
-      } else {
-          if (newErrorMap[rowId]) {
-              newErrorMap[rowId] = newErrorMap[rowId].filter(e => e.field !== field);
-              if (newErrorMap[rowId].length === 0) delete newErrorMap[rowId];
-          }
-      }
-
-      return { rows: newRows, errorMap: newErrorMap };
+      return { rows: newRows };
     });
   },
 
