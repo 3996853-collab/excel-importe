@@ -2,17 +2,19 @@
 
 import { genericImportSchema } from '@/schemas/import-schema';
 import { nanoid } from 'nanoid';
+import { sql } from '@vercel/postgres';
 
 // ---------------------------------------------------------------------------
-// In-memory store (persists across hot-reloads in dev using globalThis)
-// In production: import { sql } from '@vercel/postgres'
+// Mock Store (Used ONLY if no database is connected)
 // ---------------------------------------------------------------------------
 const globalForMock = global as unknown as { mockHistory: any[] };
 let mockHistory = globalForMock.mockHistory || [];
 if (process.env.NODE_ENV !== 'production') globalForMock.mockHistory = mockHistory;
 
+const IS_DB_CONNECTED = !!process.env.POSTGRES_URL;
+
 // ---------------------------------------------------------------------------
-// fetchHistory — supports search, filter, pagination
+// fetchHistory — 智能切换 数据库 / 模拟存储
 // ---------------------------------------------------------------------------
 export async function fetchHistory(params: {
   page?: number;
@@ -22,133 +24,122 @@ export async function fetchHistory(params: {
 }) {
   const { page = 1, pageSize = 10, search = '', externalCode = '' } = params;
 
-  let filtered = [...mockHistory];
+  if (IS_DB_CONNECTED) {
+    try {
+      const offset = (page - 1) * pageSize;
+      const searchQuery = `%${search}%`;
+      const codeQuery = `%${externalCode}%`;
 
-  if (search.trim()) {
-    const q = search.trim().toLowerCase();
-    filtered = filtered.filter(item =>
-      (item.receiverName ?? '').toLowerCase().includes(q)
-    );
-  }
+      const { rows } = await sql`
+        SELECT * FROM waybills
+        WHERE (receiver_name ILIKE ${searchQuery} OR ${search} = '')
+        AND (external_code ILIKE ${codeQuery} OR ${externalCode} = '')
+        ORDER BY created_at DESC
+        LIMIT ${pageSize} OFFSET ${offset}
+      `;
 
-  if (externalCode.trim()) {
-    const q = externalCode.trim().toLowerCase();
-    filtered = filtered.filter(item =>
-      (item.externalCode ?? '').toLowerCase().includes(q)
-    );
-  }
-
-  // Sort by createdAt descending (most recent first)
-  filtered.sort((a, b) =>
-    new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
-  );
-
-  const total = filtered.length;
-  const totalPages = Math.max(1, Math.ceil(total / pageSize));
-  const safePage = Math.min(page, totalPages);
-  const start = (safePage - 1) * pageSize;
-  const data = filtered.slice(start, start + pageSize);
-
-  return {
-    data,
-    pagination: { total, page: safePage, pageSize, totalPages },
-  };
-}
-
-// ---------------------------------------------------------------------------
-// checkDuplicates — returns Set of codes already in DB
-// ---------------------------------------------------------------------------
-export async function checkDuplicates(externalCodes: string[]): Promise<string[]> {
-  if (!externalCodes.length) return [];
-
-  // --- Production example (Neon / Vercel Postgres) ---
-  // const { rows } = await sql`
-  //   SELECT external_code FROM waybills
-  //   WHERE external_code = ANY(${externalCodes})
-  // `;
-  // return rows.map(r => r.external_code);
-
-  const existing = new Set(mockHistory.map(item => item.externalCode));
-  return externalCodes.filter(code => existing.has(code));
-}
-
-// ---------------------------------------------------------------------------
-// submitImport — validates, deduplicates, persists
-// Returns { successCount, failedCount, failedRows }
-// ---------------------------------------------------------------------------
-export async function submitImport(data: any[]): Promise<{
-  success: boolean;
-  successCount?: number;
-  failedCount?: number;
-  failedRows?: { externalCode: string; reason: string }[];
-  error?: string;
-}> {
-  if (!data.length) {
-    return { success: false, error: '没有数据可以提交。' };
-  }
-
-  const successRows: any[] = [];
-  const failedRows: { externalCode: string; reason: string }[] = [];
-
-  // Step 1: server-side validation (all rows)
-  const validatedData: any[] = [];
-  const targetFields = Object.keys(genericImportSchema.shape);
-
-  for (const row of data) {
-    // Defensively ensure all fields exist so we get 'empty' errors instead of 'undefined' errors
-    const dataToValidate = { ...row };
-    targetFields.forEach(f => {
-      if (dataToValidate[f] === undefined) dataToValidate[f] = '';
-    });
-
-    const result = genericImportSchema.safeParse(dataToValidate);
-    if (!result.success) {
-      failedRows.push({
-        externalCode: row.externalCode ?? '（未知）',
-        reason: result.error.issues.map((e: { message: string }) => e.message).join('；'),
-      });
-    } else {
-      validatedData.push(result.data);
+      const countResult = await sql`
+        SELECT count(*) FROM waybills
+        WHERE (receiver_name ILIKE ${searchQuery} OR ${search} = '')
+        AND (external_code ILIKE ${codeQuery} OR ${externalCode} = '')
+      `;
+      
+      const total = parseInt(countResult.rows[0].count);
+      return {
+        data: rows.map(r => ({
+            ...r,
+            receiverName: r.receiver_name,
+            receiverPhone: r.receiver_phone,
+            receiverAddress: r.receiver_address,
+            senderName: r.sender_name,
+            senderPhone: r.sender_phone,
+            senderAddress: r.sender_address,
+            externalCode: r.external_code,
+            createdAt: r.created_at
+        })),
+        pagination: { total, page, pageSize, totalPages: Math.ceil(total / pageSize) },
+      };
+    } catch (e) {
+      console.error('DB Fetch Error, falling back to mock:', e);
     }
   }
 
-  if (validatedData.length === 0) {
-    return {
-      success: false,
-      successCount: 0,
-      failedCount: failedRows.length,
-      failedRows,
-      error: '所有行校验失败，无可提交数据。',
-    };
+  // --- Mock Fallback ---
+  let filtered = [...mockHistory];
+  if (search.trim()) {
+    const q = search.trim().toLowerCase();
+    filtered = filtered.filter(item => (item.receiverName ?? '').toLowerCase().includes(q));
   }
-
-  // Step 2: duplicate check against DB
-  const codes = validatedData.map(r => r.externalCode);
-  const duplicates = await checkDuplicates(codes);
-  if (duplicates.length > 0) {
-    duplicates.forEach(code => {
-      failedRows.push({
-        externalCode: code,
-        reason: '该外部编码已存在于数据库（重复提交）',
-      });
-    });
+  if (externalCode.trim()) {
+    const q = externalCode.trim().toLowerCase();
+    filtered = filtered.filter(item => (item.externalCode ?? '').toLowerCase().includes(q));
   }
+  filtered.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+  const total = filtered.length;
+  const totalPages = Math.max(1, Math.ceil(total / pageSize));
+  const data = filtered.slice((page - 1) * pageSize, page * pageSize);
+  return { data, pagination: { total, page, pageSize, totalPages } };
+}
 
-  // Step 3: insert only non-duplicate rows
-  const toInsert = validatedData.filter(r => !duplicates.includes(r.externalCode));
-  toInsert.forEach(row => {
-    mockHistory.push({
-      ...row,
-      id: nanoid(),
-      createdAt: new Date().toISOString(),
-    });
-    successRows.push(row);
-  });
+// ---------------------------------------------------------------------------
+// submitImport — 批量持久化
+// ---------------------------------------------------------------------------
+export async function submitImport(data: any[]) {
+  if (!data.length) return { success: false, error: '没有数据可以提交。' };
+
+  const successRows: any[] = [];
+  const failedRows: any[] = [];
+  const targetFields = Object.keys(genericImportSchema.shape);
+
+  for (const row of data) {
+    const dataToValidate = { ...row };
+    targetFields.forEach(f => { if (dataToValidate[f] === undefined) dataToValidate[f] = ''; });
+
+    const result = genericImportSchema.safeParse(dataToValidate);
+    if (!result.success) {
+      failedRows.push({ externalCode: row.externalCode || '未知', reason: '格式校验不通过' });
+      continue;
+    }
+
+    if (IS_DB_CONNECTED) {
+      try {
+        const d = result.data;
+        await sql`
+          INSERT INTO waybills (
+            id, external_code, receiver_name, receiver_phone, receiver_address,
+            sender_name, sender_phone, sender_address, weight, quantity, temperature, created_at
+          ) VALUES (
+            ${nanoid()}, ${d.externalCode}, ${d.receiverName}, ${d.receiverPhone}, ${d.receiverAddress},
+            ${d.senderName}, ${d.senderPhone}, ${d.senderAddress}, ${d.weight}, ${d.quantity}, ${d.temperature}, NOW()
+          ) ON CONFLICT (external_code) DO NOTHING
+        `;
+        successRows.push(d);
+      } catch (e) {
+        failedRows.push({ externalCode: row.externalCode, reason: '数据库写入失败' });
+      }
+    } else {
+      const newEntry = { ...result.data, id: nanoid(), createdAt: new Date().toISOString() };
+      mockHistory.push(newEntry);
+      successRows.push(newEntry);
+    }
+  }
 
   return {
     success: true,
     successCount: successRows.length,
     failedCount: failedRows.length,
-    failedRows: failedRows.length ? failedRows : undefined,
+    failedRows: failedRows.length ? failedRows : undefined
   };
+}
+
+export async function checkDuplicates(codes: string[]): Promise<string[]> {
+    if (!codes.length) return [];
+    if (IS_DB_CONNECTED) {
+        try {
+            const { rows } = await sql`SELECT external_code FROM waybills WHERE external_code = ANY(${codes})`;
+            return rows.map(r => r.external_code);
+        } catch { return []; }
+    }
+    const existing = new Set(mockHistory.map(item => item.externalCode));
+    return codes.filter(code => existing.has(code));
 }
