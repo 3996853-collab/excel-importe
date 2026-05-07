@@ -53,7 +53,7 @@ export function DataGrid() {
       },
       ...headers.map((header) => ({
         id: header,
-        accessorKey: header,
+        accessorFn: (row: any) => row.data?.[header],
         header: () => (
           <span className="font-bold text-xs">
             {getFieldLabel(header)}
