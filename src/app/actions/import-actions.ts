@@ -46,8 +46,8 @@ export async function fetchHistory(params: {
         SELECT * FROM waybills
         WHERE (receiver_name ILIKE ${searchQuery} OR ${search} = '')
         AND (external_code ILIKE ${codeQuery} OR ${externalCode} = '')
-        AND (${dbStartDate}::timestamp IS NULL OR created_at >= ${dbStartDate}::timestamp)
-        AND (${dbEndDate}::timestamp IS NULL OR created_at <= (${dbEndDate}::timestamp + interval '1 day'))
+        AND (${dbStartDate}::timestamp IS NULL OR COALESCE(created_at, '1970-01-01') >= ${dbStartDate}::timestamp)
+        AND (${dbEndDate}::timestamp IS NULL OR COALESCE(created_at, '1970-01-01') <= (${dbEndDate}::timestamp + interval '1 day'))
         ORDER BY created_at DESC
         LIMIT ${pageSize} OFFSET ${offset}
       `;
@@ -56,8 +56,8 @@ export async function fetchHistory(params: {
         SELECT count(*) FROM waybills
         WHERE (receiver_name ILIKE ${searchQuery} OR ${search} = '')
         AND (external_code ILIKE ${codeQuery} OR ${externalCode} = '')
-        AND (${dbStartDate}::timestamp IS NULL OR created_at >= ${dbStartDate}::timestamp)
-        AND (${dbEndDate}::timestamp IS NULL OR created_at <= (${dbEndDate}::timestamp + interval '1 day'))
+        AND (${dbStartDate}::timestamp IS NULL OR COALESCE(created_at, '1970-01-01') >= ${dbStartDate}::timestamp)
+        AND (${dbEndDate}::timestamp IS NULL OR COALESCE(created_at, '1970-01-01') <= (${dbEndDate}::timestamp + interval '1 day'))
       `;
       
       const total = parseInt(countResult.rows[0].count);
@@ -138,15 +138,26 @@ export async function submitImport(data: any[]) {
           ) VALUES (
             ${nanoid()}, ${dbExternalCode}, ${d.receiverName}, ${d.receiverPhone}, ${d.receiverAddress},
             ${d.senderName}, ${d.senderPhone}, ${d.senderAddress}, ${d.weight}, ${d.quantity}, ${d.temperature}, NOW()
-          ) ON CONFLICT (external_code) DO NOTHING
+          ) ON CONFLICT (external_code) DO UPDATE SET
+            receiver_name = EXCLUDED.receiver_name,
+            receiver_phone = EXCLUDED.receiver_phone,
+            receiver_address = EXCLUDED.receiver_address,
+            sender_name = EXCLUDED.sender_name,
+            sender_phone = EXCLUDED.sender_phone,
+            sender_address = EXCLUDED.sender_address,
+            weight = EXCLUDED.weight,
+            quantity = EXCLUDED.quantity,
+            temperature = EXCLUDED.temperature
         `;
         successRows.push(d);
       } catch (e: any) {
         console.error('Database write failed for row:', row.externalCode, e);
-        const errorMessage = e.message || '数据库写入失败';
+        // Return detailed error for debugging
+        const detail = e.detail || '';
+        const message = e.message || '';
         failedRows.push({ 
           externalCode: row.externalCode || '未知', 
-          reason: errorMessage.includes('unique constraint') ? '外部编码已存在' : errorMessage 
+          reason: `数据库报错: ${message} ${detail}` 
         });
       }
     } else {
