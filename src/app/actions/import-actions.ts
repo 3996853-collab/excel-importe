@@ -115,6 +115,7 @@ export async function submitImport(data: any[]) {
         `;
         successRows.push(d);
       } catch (e) {
+        console.error('Database write failed for row:', row.externalCode, e);
         failedRows.push({ externalCode: row.externalCode, reason: '数据库写入失败' });
       }
     } else {

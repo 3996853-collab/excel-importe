@@ -1,0 +1,336 @@
+[
+  {
+    "fileName": "1_标准模板_正常.xlsx",
+    "filePath": "C:\\Users\\ZTOCC\\Downloads\\test-files\\test-files\\1_标准模板_正常.xlsx",
+    "sheetNames": [
+      "订单导入"
+    ],
+    "status": "ok",
+    "selectedSheet": "订单导入",
+    "headerRowIndex": 0,
+    "totalRows": 5,
+    "headers": [
+      "外部编码",
+      "发件人姓名",
+      "发件人电话",
+      "发件人地址",
+      "收件人姓名",
+      "收件人电话",
+      "收件人地址",
+      "重量(kg)",
+      "件数",
+      "温层",
+      "备注"
+    ],
+    "autoMappedCount": 10,
+    "unmappedRequired": [
+      "receiverPhone",
+      "receiverAddress",
+      "senderPhone",
+      "senderAddress"
+    ],
+    "canImportDirectly": false
+  },
+  {
+    "fileName": "2_电商模板_合并单元格.xlsx",
+    "filePath": "C:\\Users\\ZTOCC\\Downloads\\test-files\\test-files\\2_电商模板_合并单元格.xlsx",
+    "sheetNames": [
+      "Sheet1"
+    ],
+    "status": "ok",
+    "selectedSheet": "Sheet1",
+    "headerRowIndex": 1,
+    "totalRows": 3,
+    "headers": [
+      "外部订单号",
+      "发货人",
+      "发货电话",
+      "发货地址",
+      "收货人",
+      "收货电话",
+      "收货地址",
+      "重量(kg)",
+      "数量",
+      "温度要求",
+      "附言"
+    ],
+    "autoMappedCount": 7,
+    "unmappedRequired": [
+      "receiverPhone",
+      "senderPhone",
+      "senderAddress"
+    ],
+    "canImportDirectly": false
+  },
+  {
+    "fileName": "3_英文列名模板.xlsx",
+    "filePath": "C:\\Users\\ZTOCC\\Downloads\\test-files\\test-files\\3_英文列名模板.xlsx",
+    "sheetNames": [
+      "Import"
+    ],
+    "status": "ok",
+    "selectedSheet": "Import",
+    "headerRowIndex": 0,
+    "totalRows": 3,
+    "headers": [
+      "Ref Code",
+      "Sender",
+      "Sender Tel",
+      "Sender Address",
+      "Receiver",
+      "Receiver Tel",
+      "Receiver Address",
+      "Weight(kg)",
+      "Qty",
+      "Temp Zone",
+      "Note"
+    ],
+    "autoMappedCount": 10,
+    "unmappedRequired": [
+      "receiverPhone",
+      "receiverAddress",
+      "senderPhone",
+      "senderAddress"
+    ],
+    "canImportDirectly": false
+  },
+  {
+    "fileName": "4_分组表头模板.xlsx",
+    "filePath": "C:\\Users\\ZTOCC\\Downloads\\test-files\\test-files\\4_分组表头模板.xlsx",
+    "sheetNames": [
+      "批量下单"
+    ],
+    "status": "ok",
+    "selectedSheet": "批量下单",
+    "headerRowIndex": 1,
+    "totalRows": 3,
+    "headers": [
+      "发件人",
+      "发件电话",
+      "发件地址",
+      "外部编码",
+      "收件人",
+      "收件电话",
+      "收件地址",
+      "备注",
+      "重量(kg)",
+      "件数",
+      "温层",
+      ""
+    ],
+    "autoMappedCount": 9,
+    "unmappedRequired": [
+      "receiverPhone",
+      "senderPhone"
+    ],
+    "canImportDirectly": false
+  },
+  {
+    "fileName": "5_多Sheet模板.xlsx",
+    "filePath": "C:\\Users\\ZTOCC\\Downloads\\test-files\\test-files\\5_多Sheet模板.xlsx",
+    "sheetNames": [
+      "填写说明",
+      "订单数据"
+    ],
+    "status": "ok",
+    "selectedSheet": "订单数据",
+    "headerRowIndex": 0,
+    "totalRows": 3,
+    "headers": [
+      "客户单号",
+      "发件人",
+      "发件电话",
+      "发件地址",
+      "收件人",
+      "收件电话",
+      "收件地址",
+      "重量(KG)",
+      "件数",
+      "温层",
+      "备注"
+    ],
+    "autoMappedCount": 8,
+    "unmappedRequired": [
+      "receiverPhone",
+      "senderPhone"
+    ],
+    "canImportDirectly": false
+  },
+  {
+    "fileName": "6_包含各种错误.xlsx",
+    "filePath": "C:\\Users\\ZTOCC\\Downloads\\test-files\\test-files\\6_包含各种错误.xlsx",
+    "sheetNames": [
+      "错误测试"
+    ],
+    "status": "ok",
+    "selectedSheet": "错误测试",
+    "headerRowIndex": 0,
+    "totalRows": 12,
+    "headers": [
+      "外部编码",
+      "发件人姓名",
+      "发件人电话",
+      "发件人地址",
+      "收件人姓名",
+      "收件人电话",
+      "收件人地址",
+      "重量(kg)",
+      "件数",
+      "温层",
+      "备注"
+    ],
+    "autoMappedCount": 10,
+    "unmappedRequired": [
+      "receiverPhone",
+      "receiverAddress",
+      "senderPhone",
+      "senderAddress"
+    ],
+    "canImportDirectly": false
+  },
+  {
+    "fileName": "7_缺少选填列模板.xlsx",
+    "filePath": "C:\\Users\\ZTOCC\\Downloads\\test-files\\test-files\\7_缺少选填列模板.xlsx",
+    "sheetNames": [
+      "精简模板"
+    ],
+    "status": "ok",
+    "selectedSheet": "精简模板",
+    "headerRowIndex": 0,
+    "totalRows": 3,
+    "headers": [
+      "发件人姓名",
+      "发件人电话",
+      "发件人地址",
+      "收件人姓名",
+      "收件人电话",
+      "收件人地址",
+      "重量(kg)",
+      "件数",
+      "温层"
+    ],
+    "autoMappedCount": 9,
+    "unmappedRequired": [
+      "externalCode",
+      "receiverPhone",
+      "receiverAddress",
+      "senderPhone",
+      "senderAddress"
+    ],
+    "canImportDirectly": false
+  },
+  {
+    "fileName": "8_大文件1000行.xlsx",
+    "filePath": "C:\\Users\\ZTOCC\\Downloads\\test-files\\test-files\\8_大文件1000行.xlsx",
+    "sheetNames": [
+      "大批量数据"
+    ],
+    "status": "ok",
+    "selectedSheet": "大批量数据",
+    "headerRowIndex": 0,
+    "totalRows": 1000,
+    "headers": [
+      "外部编码",
+      "发件人姓名",
+      "发件人电话",
+      "发件人地址",
+      "收件人姓名",
+      "收件人电话",
+      "收件人地址",
+      "重量(kg)",
+      "件数",
+      "温层",
+      "备注"
+    ],
+    "autoMappedCount": 10,
+    "unmappedRequired": [
+      "receiverPhone",
+      "receiverAddress",
+      "senderPhone",
+      "senderAddress"
+    ],
+    "canImportDirectly": false
+  },
+  {
+    "fileName": "9_空文件.xlsx",
+    "filePath": "C:\\Users\\ZTOCC\\Downloads\\test-files\\test-files\\9_空文件.xlsx",
+    "sheetNames": [
+      "Empty"
+    ],
+    "status": "error",
+    "error": "未能在任何 Sheet 中识别到有效的运单数据"
+  },
+  {
+    "fileName": "10_只有表头无数据.xlsx",
+    "filePath": "C:\\Users\\ZTOCC\\Downloads\\test-files\\test-files\\10_只有表头无数据.xlsx",
+    "sheetNames": [
+      "NoData"
+    ],
+    "status": "error",
+    "error": "未能在任何 Sheet 中识别到有效的运单数据"
+  },
+  {
+    "fileName": "11_乱序列模板.xlsx",
+    "filePath": "C:\\Users\\ZTOCC\\Downloads\\test-files\\test-files\\11_乱序列模板.xlsx",
+    "sheetNames": [
+      "乱序"
+    ],
+    "status": "ok",
+    "selectedSheet": "乱序",
+    "headerRowIndex": 0,
+    "totalRows": 3,
+    "headers": [
+      "温层",
+      "收件人地址",
+      "收件人电话",
+      "收件人姓名",
+      "重量(kg)",
+      "发件人地址",
+      "发件人电话",
+      "发件人姓名",
+      "备注",
+      "件数",
+      "外部编码"
+    ],
+    "autoMappedCount": 10,
+    "unmappedRequired": [
+      "receiverPhone",
+      "receiverAddress",
+      "senderPhone",
+      "senderAddress"
+    ],
+    "canImportDirectly": false
+  },
+  {
+    "fileName": "12_特殊字符和长文本.xlsx",
+    "filePath": "C:\\Users\\ZTOCC\\Downloads\\test-files\\test-files\\12_特殊字符和长文本.xlsx",
+    "sheetNames": [
+      "特殊字符"
+    ],
+    "status": "ok",
+    "selectedSheet": "特殊字符",
+    "headerRowIndex": 0,
+    "totalRows": 3,
+    "headers": [
+      "外部编码",
+      "发件人姓名",
+      "发件人电话",
+      "发件人地址",
+      "收件人姓名",
+      "收件人电话",
+      "收件人地址",
+      "重量(kg)",
+      "件数",
+      "温层",
+      "备注"
+    ],
+    "autoMappedCount": 10,
+    "unmappedRequired": [
+      "receiverPhone",
+      "receiverAddress",
+      "senderPhone",
+      "senderAddress"
+    ],
+    "canImportDirectly": false
+  }
+]

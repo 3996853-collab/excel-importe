@@ -28,29 +28,58 @@ const TARGET_FIELDS = Object.keys(genericImportSchema.shape);
 
 // Comprehensive synonym dictionary for auto-mapping
 const SYNONYMS: Record<string, string[]> = {
-  externalCode:    ['外部编码', '订单号', '单号', '编码', 'Order No', 'Code', 'OrderId', 'ExternalCode'],
+  externalCode:    ['外部编码', '外部订单号', '客户单号', '订单号', '单号', '编码', 'Ref Code', 'Order No', 'Code', 'OrderId', 'ExternalCode'],
   receiverName:    ['收货人', '收件人', '收件人姓名', '收货人姓名', 'Receiver', 'Receiver Name', 'Customer'],
-  receiverPhone:   ['收件人电话', '收货人电话', '收件手机', '收货手机', 'Receiver Phone', 'Receiver Tel'],
+  receiverPhone:   ['收件人电话', '收货人电话', '收货电话', '收件手机', '收货手机', 'Receiver Phone', 'Receiver Tel'],
   receiverAddress: ['收货地址', '收件地址', '目的地', 'Receiver Address', 'Delivery Address'],
   senderName:      ['发件人', '寄件人', '发货人', '发件人姓名', 'Sender', 'Sender Name'],
-  senderPhone:     ['发件人电话', '寄件人电话', '发货手机', 'Sender Phone', 'Sender Tel'],
-  senderAddress:   ['发件地址', '寄件地址', '始发地', 'Sender Address', 'Origin Address'],
-  weight:          ['重量', '毛重', '货重', 'Weight', 'Wgt', 'Gross Weight'],
+  senderPhone:     ['发件人电话', '寄件人电话', '发货电话', '发货手机', 'Sender Phone', 'Sender Tel'],
+  senderAddress:   ['发件地址', '寄件地址', '发货地址', '始发地', 'Sender Address', 'Origin Address'],
+  weight:          ['重量(kg)', '重量', '重量kg', '重量KG', '毛重', '货重', 'Weight(kg)', 'Weight', 'Wgt', 'Gross Weight'],
   quantity:        ['件数', '数量', '箱数', 'Quantity', 'Qty', 'Pieces'],
-  temperature:     ['温层', '温度', '温度要求', 'Temperature', 'Temp'],
+  temperature:     ['温层', '温度要求', '温层要求', '温度', 'Temp Zone', 'Temperature', 'Temp'],
 };
+
+function normalizeHeader(value: string): string {
+  return value
+    .trim()
+    .toLowerCase()
+    .replace(/[\s_\-]+/g, '')
+    .replace(/[()（）[\]【】]/g, '');
+}
 
 function autoMap(headers: string[]): Record<string, string> {
   const result: Record<string, string> = {};
+
+  const synonymEntries = Object.entries(SYNONYMS)
+    .flatMap(([field, synonyms]) =>
+      synonyms.map((synonym) => ({
+        field,
+        synonym,
+        normalized: normalizeHeader(synonym),
+      }))
+    )
+    .sort((a, b) => b.normalized.length - a.normalized.length);
+
   for (const header of headers) {
-    const h = header.toLowerCase();
-    // Exact match first
-    const exact = TARGET_FIELDS.find(f => f.toLowerCase() === h);
-    if (exact) { result[header] = exact; continue; }
-    // Synonym match
-    for (const [field, syns] of Object.entries(SYNONYMS)) {
-      if (syns.some(s => h.includes(s.toLowerCase()) || s.toLowerCase().includes(h))) {
-        result[header] = field;
+    const normalizedHeader = normalizeHeader(header);
+
+    // Exact system-field match first
+    const exactField = TARGET_FIELDS.find((field) => normalizeHeader(field) === normalizedHeader);
+    if (exactField) {
+      result[header] = exactField;
+      continue;
+    }
+
+    // Then exact/longest synonym match to avoid broad matches like "收件人" eating "收件人电话"
+    for (const entry of synonymEntries) {
+      if (!entry.normalized) continue;
+      if (
+        normalizedHeader === entry.normalized ||
+        normalizedHeader.includes(entry.normalized) ||
+        entry.normalized.includes(normalizedHeader)
+      ) {
+        result[header] = entry.field;
         break;
       }
     }
