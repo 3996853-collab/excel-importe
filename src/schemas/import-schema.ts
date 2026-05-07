@@ -21,12 +21,12 @@ export const genericImportSchema = z.object({
   senderAddress: z.string().min(1, '发件人地址不能为空'), // 取消长度校验
 
   // 货物信息
-  weight: z.coerce.number({ invalid_type_error: '重量必须为数字' }).positive('重量必须为正数'),
-  quantity: z.coerce.number({ invalid_type_error: '件数必须为数字' }).int('件数必须为整数').positive('件数必须为正整数'),
+  weight: z.coerce.number().pipe(z.number().positive('重量必须为正数')),
+  quantity: z.coerce.number().pipe(z.number().int('件数必须为整数').positive('件数必须为正整数')),
   
   // 温层
   temperature: z.enum(TEMPERATURE_OPTIONS, {
-    errorMap: () => ({ message: '温层必须是：常温、冷藏 或 冷冻' })
+    error: '温层必须是：常温、冷藏 或 冷冻',
   }),
 });
 
