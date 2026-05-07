@@ -14,7 +14,7 @@ import {
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
-import { Search, Filter, ChevronLeft, ChevronRight, Loader2 } from 'lucide-react';
+import { Search, Filter, ChevronLeft, ChevronRight, Loader2, Calendar } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { format } from 'date-fns';
 
@@ -23,6 +23,8 @@ export default function HistoryPage() {
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [externalCode, setExternalCode] = useState('');
+  const [startDate, setStartDate] = useState('');
+  const [endDate, setEndDate] = useState('');
   const [page, setPage] = useState(1);
   const [pagination, setPagination] = useState<any>({});
 
@@ -32,7 +34,9 @@ export default function HistoryPage() {
       const result = await fetchHistory({ 
         page, 
         search, 
-        externalCode 
+        externalCode,
+        startDate,
+        endDate
       });
       setData(result.data);
       setPagination(result.pagination);
@@ -80,18 +84,45 @@ export default function HistoryPage() {
                 onChange={(e) => setSearch(e.target.value)}
               />
             </div>
-            <div className="flex-1 min-w-[200px]">
+            <div className="flex-1 min-w-[200px] relative">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
               <Input 
                 placeholder="按外部编码筛选..." 
+                className="pl-9"
                 value={externalCode}
                 onChange={(e) => setExternalCode(e.target.value)}
+              />
+            </div>
+            <div className="flex-1 min-w-[200px] relative">
+              <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+              <Input 
+                type="date"
+                className="pl-9"
+                value={startDate}
+                onChange={(e) => setStartDate(e.target.value)}
+              />
+            </div>
+            <div className="flex-1 min-w-[200px] relative">
+              <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+              <Input 
+                type="date"
+                className="pl-9"
+                value={endDate}
+                onChange={(e) => setEndDate(e.target.value)}
               />
             </div>
             <Button type="submit">搜索</Button>
             <Button 
                 type="button" 
                 variant="outline" 
-                onClick={() => { setSearch(''); setExternalCode(''); setPage(1); loadData(); }}
+                onClick={() => { 
+                  setSearch(''); 
+                  setExternalCode(''); 
+                  setStartDate('');
+                  setEndDate('');
+                  setPage(1); 
+                  loadData(); 
+                }}
             >
                 重置
             </Button>

@@ -3,6 +3,7 @@
 import { genericImportSchema } from '@/schemas/import-schema';
 import { nanoid } from 'nanoid';
 import { sql } from '@vercel/postgres';
+import { revalidatePath } from 'next/cache';
 
 // ---------------------------------------------------------------------------
 // Mock Store (Used ONLY if no database is connected)
@@ -21,8 +22,17 @@ export async function fetchHistory(params: {
   pageSize?: number;
   search?: string;
   externalCode?: string;
+  startDate?: string;
+  endDate?: string;
 }) {
-  const { page = 1, pageSize = 10, search = '', externalCode = '' } = params;
+  const { 
+    page = 1, 
+    pageSize = 10, 
+    search = '', 
+    externalCode = '',
+    startDate = '',
+    endDate = ''
+  } = params;
 
   if (IS_DB_CONNECTED) {
     try {
@@ -34,6 +44,8 @@ export async function fetchHistory(params: {
         SELECT * FROM waybills
         WHERE (receiver_name ILIKE ${searchQuery} OR ${search} = '')
         AND (external_code ILIKE ${codeQuery} OR ${externalCode} = '')
+        AND (${startDate} = '' OR created_at >= CAST(NULLIF(${startDate}, '') AS timestamp))
+        AND (${endDate} = '' OR created_at <= CAST(NULLIF(${endDate}, '') AS timestamp) + interval '1 day')
         ORDER BY created_at DESC
         LIMIT ${pageSize} OFFSET ${offset}
       `;
@@ -42,6 +54,8 @@ export async function fetchHistory(params: {
         SELECT count(*) FROM waybills
         WHERE (receiver_name ILIKE ${searchQuery} OR ${search} = '')
         AND (external_code ILIKE ${codeQuery} OR ${externalCode} = '')
+        AND (${startDate} = '' OR created_at >= CAST(NULLIF(${startDate}, '') AS timestamp))
+        AND (${endDate} = '' OR created_at <= CAST(NULLIF(${endDate}, '') AS timestamp) + interval '1 day')
       `;
       
       const total = parseInt(countResult.rows[0].count);
@@ -74,6 +88,14 @@ export async function fetchHistory(params: {
     const q = externalCode.trim().toLowerCase();
     filtered = filtered.filter(item => (item.externalCode ?? '').toLowerCase().includes(q));
   }
+  if (startDate) {
+    const start = new Date(startDate).getTime();
+    filtered = filtered.filter(item => new Date(item.createdAt).getTime() >= start);
+  }
+  if (endDate) {
+    const end = new Date(endDate).getTime() + 86400000; // Add 24 hours
+    filtered = filtered.filter(item => new Date(item.createdAt).getTime() < end);
+  }
   filtered.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
   const total = filtered.length;
   const totalPages = Math.max(1, Math.ceil(total / pageSize));
@@ -104,12 +126,15 @@ export async function submitImport(data: any[]) {
     if (IS_DB_CONNECTED) {
       try {
         const d = result.data;
+        // If externalCode is empty string, set to null for DB to avoid UNIQUE constraint conflicts with other empty strings
+        const dbExternalCode = d.externalCode?.trim() === '' ? null : d.externalCode;
+
         await sql`
           INSERT INTO waybills (
             id, external_code, receiver_name, receiver_phone, receiver_address,
             sender_name, sender_phone, sender_address, weight, quantity, temperature, created_at
           ) VALUES (
-            ${nanoid()}, ${d.externalCode}, ${d.receiverName}, ${d.receiverPhone}, ${d.receiverAddress},
+            ${nanoid()}, ${dbExternalCode}, ${d.receiverName}, ${d.receiverPhone}, ${d.receiverAddress},
             ${d.senderName}, ${d.senderPhone}, ${d.senderAddress}, ${d.weight}, ${d.quantity}, ${d.temperature}, NOW()
           ) ON CONFLICT (external_code) DO NOTHING
         `;
@@ -125,6 +150,7 @@ export async function submitImport(data: any[]) {
     }
   }
 
+  revalidatePath('/history');
   return {
     success: true,
     successCount: successRows.length,
