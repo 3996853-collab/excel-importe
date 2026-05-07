@@ -136,7 +136,10 @@ export async function checkDuplicates(codes: string[]): Promise<string[]> {
     if (!codes.length) return [];
     if (IS_DB_CONNECTED) {
         try {
-            const { rows } = await sql`SELECT external_code FROM waybills WHERE external_code = ANY(${codes})`;
+            const { rows } = await sql.query(
+              'SELECT external_code FROM waybills WHERE external_code = ANY($1)',
+              [codes]
+            );
             return rows.map(r => r.external_code);
         } catch { return []; }
     }

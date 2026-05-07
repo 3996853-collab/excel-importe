@@ -40,6 +40,9 @@ export function DataGrid() {
   const { rows, headers, updateCell, addRow, deleteRow } = useImportStore();
 
   const columns = useMemo<ColumnDef<any>[]>(() => {
+    // Basic columns if headers are missing for some reason
+    if (!headers || headers.length === 0) return [];
+
     const cols: ColumnDef<any>[] = [
       {
         id: 'rowNum',
@@ -62,17 +65,17 @@ export function DataGrid() {
         cell: ({ row, getValue }: any) => {
           const value = getValue();
           const rowId = (row.original as any).id;
-          const error = (row.original as any).errors[header];
+          const error = (row.original as any).errors?.[header];
 
           return (
             <div className="relative group flex items-center min-h-[40px] w-full border-r last:border-r-0">
               {header === 'temperature' ? (
                 <Select
-                  value={value || undefined}
+                  value={value || ""}
                   onValueChange={(val) => updateCell(rowId, header, val)}
                 >
                   <SelectTrigger className={`border-none h-9 w-full rounded-none px-2 text-sm focus:ring-0 ${error ? 'bg-destructive/10' : ''}`}>
-                    <SelectValue placeholder="选择温层" />
+                    <SelectValue placeholder="温层" />
                   </SelectTrigger>
                   <SelectContent>
                     {TEMPERATURE_OPTIONS.map(opt => (
@@ -96,7 +99,7 @@ export function DataGrid() {
                         <AlertCircle className="w-3.5 h-3.5" />
                       </div>
                     </TooltipTrigger>
-                    <TooltipContent side="top" className="max-w-[200px] z-50">
+                    <TooltipContent side="top" className="max-w-[200px] z-50 bg-destructive text-destructive-foreground">
                       <p className="text-xs">{error}</p>
                     </TooltipContent>
                   </Tooltip>
@@ -134,8 +137,16 @@ export function DataGrid() {
     getCoreRowModel: getCoreRowModel(),
   });
 
+  if (!headers || headers.length === 0) {
+    return (
+      <div className="p-8 text-center border-2 border-dashed rounded-lg bg-muted/20">
+        <p className="text-muted-foreground">未检测到有效列映射，请重试。</p>
+      </div>
+    );
+  }
+
   return (
-    <div className="space-y-3 w-full">
+    <div className="space-y-3 w-full animate-in fade-in slide-in-from-bottom-2 duration-500">
       <div className="flex items-center justify-between text-xs text-muted-foreground px-1">
         <span>共 <strong>{rows.length}</strong> 行数据</span>
         <div className="flex gap-4">
@@ -150,11 +161,11 @@ export function DataGrid() {
         </div>
       </div>
 
-      <div className="rounded-lg border shadow-sm bg-card overflow-auto max-h-[600px]">
-        <Table className="relative w-full border-collapse min-w-max">
-          <TableHeader className="sticky top-0 bg-muted/80 backdrop-blur-sm z-20 shadow-sm">
+      <div className="rounded-lg border shadow-sm bg-card overflow-auto max-h-[600px] relative">
+        <Table className="relative w-full border-collapse min-w-max table-fixed">
+          <TableHeader className="sticky top-0 bg-secondary/90 backdrop-blur-md z-20 shadow-sm">
             {table.getHeaderGroups().map((headerGroup) => (
-              <TableRow key={headerGroup.id}>
+              <TableRow key={headerGroup.id} className="hover:bg-transparent">
                 {headerGroup.headers.map((header) => (
                   <TableHead
                     key={header.id}
@@ -180,12 +191,12 @@ export function DataGrid() {
                 return (
                   <TableRow
                     key={row.id}
-                    className={isInvalid ? 'bg-destructive/5 hover:bg-destructive/10' : ''}
+                    className={`transition-colors ${isInvalid ? 'bg-destructive/5 hover:bg-destructive/10' : 'hover:bg-muted/50'}`}
                   >
                     {row.getVisibleCells().map((cell) => (
                       <TableCell 
                         key={cell.id} 
-                        className="p-0 border-r last:border-r-0"
+                        className="p-0 border-r last:border-r-0 overflow-hidden"
                         style={{ width: cell.column.columnDef.size }}
                       >
                         {flexRender(cell.column.columnDef.cell, cell.getContext())}
@@ -201,11 +212,11 @@ export function DataGrid() {
 
       <Button
         variant="outline"
-        className="w-full border-dashed text-muted-foreground hover:text-foreground h-10"
+        className="w-full border-dashed text-muted-foreground hover:text-foreground h-10 transition-all hover:bg-muted"
         onClick={addRow}
       >
         <Plus className="w-4 h-4 mr-2" />
-        添加新行
+        手动添加一行
       </Button>
     </div>
   );
@@ -230,7 +241,7 @@ function EditableCell({ value, onBlur, hasError }: EditableCellProps) {
       onChange={(e) => setVal(e.target.value)}
       onBlur={() => onBlur(val)}
       className={`
-        border-none focus-visible:ring-1 focus-visible:ring-primary rounded-none h-9 w-full px-2.5 text-sm
+        border-none focus-visible:ring-1 focus-visible:ring-primary rounded-none h-9 w-full px-2.5 text-sm transition-all
         ${hasError ? 'bg-destructive/5 text-destructive font-medium pr-8' : 'bg-transparent'}
       `}
     />
