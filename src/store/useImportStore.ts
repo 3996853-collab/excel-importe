@@ -2,6 +2,7 @@
 import { create } from 'zustand';
 import { ImportRow } from '@/types/import';
 import { nanoid } from 'nanoid';
+import { genericImportSchema } from '@/schemas/import-schema';
 
 interface ErrorEntry {
   row: number;
@@ -43,14 +44,10 @@ export const useImportStore = create<ImportState>((set, get) => ({
       headers.forEach((header, index) => {
         data[header] = rawRow[index] ?? '';
       });
-      return {
-        id: nanoid(),
-        data,
-        errors: {},
-        status: 'pending',
-      };
+      return { id: nanoid(), data, errors: {}, status: 'pending' };
     });
     set({ headers, rows, totalRows: total ?? rows.length, progress: 100, isParsing: false });
+    // Run validation synchronously after setting data
     get().validateAll();
   },
 
@@ -60,6 +57,8 @@ export const useImportStore = create<ImportState>((set, get) => ({
         row.id === rowId ? { ...row, data: { ...row.data, [field]: value } } : row
       ),
     }));
+    // Re-validate ALL rows so duplicate detection stays accurate
+    get().validateAll();
   },
 
   addRow: () => {
@@ -75,38 +74,40 @@ export const useImportStore = create<ImportState>((set, get) => ({
   },
 
   deleteRow: (rowId) => {
-    set((state) => ({
-      rows: state.rows.filter((row) => row.id !== rowId),
-    }));
+    set((state) => ({ rows: state.rows.filter((row) => row.id !== rowId) }));
     get().validateAll();
   },
 
   setRowStatus: (rowId, status) => {
     set((state) => ({
-      rows: state.rows.map((row) =>
-        row.id === rowId ? { ...row, status } : row
-      ),
+      rows: state.rows.map((row) => (row.id === rowId ? { ...row, status } : row)),
     }));
   },
 
   validateAll: (existingCodes?: Set<string>) => {
-    const { rows } = get();
-    // Use dynamic require to avoid circular deps in Zustand
-    const { genericImportSchema } = require('@/schemas/import-schema');
-
+    const { rows, headers } = get();
+    const targetFields = Object.keys(genericImportSchema.shape);
     const newErrorMap: Record<string, ErrorEntry[]> = {};
-    const seenCodes = new Map<string, number>(); // code → first row number
+    const seenCodes = new Map<string, number>();
 
     const validatedRows = rows.map((row, idx) => {
       const errors: Record<string, string> = {};
       const rowNum = idx + 1;
 
-      // 1. Zod schema validation — collect ALL errors at once
-      const result = genericImportSchema.safeParse(row.data);
+      // Ensure data has all required keys to avoid 'undefined' errors from Zod
+      const dataToValidate = { ...row.data };
+      targetFields.forEach(field => {
+        if (dataToValidate[field] === undefined) {
+          dataToValidate[field] = '';
+        }
+      });
+
+      // ── 1. Full schema validation (ALL errors at once via safeParse) ──
+      const result = genericImportSchema.safeParse(dataToValidate);
       if (!result.success) {
-        result.error.errors.forEach((err: any) => {
-          const field = err.path[0] as string;
-          if (field && !errors[field]) {   // first error per field wins
+        result.error.issues.forEach((err) => {
+          const field = String(err.path[0] ?? '');
+          if (field && !errors[field]) {
             errors[field] = err.message;
             if (!newErrorMap[row.id]) newErrorMap[row.id] = [];
             newErrorMap[row.id].push({ row: rowNum, field, msg: err.message });
@@ -114,34 +115,28 @@ export const useImportStore = create<ImportState>((set, get) => ({
         });
       }
 
-      // 2. In-batch duplicate detection
-      const code = row.data.externalCode;
-      if (code && String(code).trim() !== '') {
-        const codeStr = String(code).trim();
-        if (seenCodes.has(codeStr)) {
-          const firstRow = seenCodes.get(codeStr)!;
+      // ── 2. In-batch duplicate detection ──
+      const code = String(row.data.externalCode ?? '').trim();
+      if (code) {
+        if (seenCodes.has(code)) {
+          const firstRow = seenCodes.get(code)!;
           const msg = `与第 ${firstRow} 行的外部编码重复`;
-          errors['externalCode'] = msg;
-          if (!newErrorMap[row.id]) newErrorMap[row.id] = [];
-          // Avoid duplicating same error
-          const alreadyHas = newErrorMap[row.id].some(e => e.field === 'externalCode');
-          if (!alreadyHas) {
+          if (!errors['externalCode']) {
+            errors['externalCode'] = msg;
+            if (!newErrorMap[row.id]) newErrorMap[row.id] = [];
             newErrorMap[row.id].push({ row: rowNum, field: 'externalCode', msg });
           }
         } else {
-          seenCodes.set(codeStr, rowNum);
+          seenCodes.set(code, rowNum);
         }
       }
 
-      // 3. Database existing codes check (if provided)
-      if (existingCodes && code) {
-        const codeStr = String(code).trim();
-        if (existingCodes.has(codeStr) && !errors['externalCode']) {
-          const msg = '该外部编码已存在于数据库（历史数据重复）';
-          errors['externalCode'] = msg;
-          if (!newErrorMap[row.id]) newErrorMap[row.id] = [];
-          newErrorMap[row.id].push({ row: rowNum, field: 'externalCode', msg });
-        }
+      // ── 3. Database existing codes (async pre-check result) ──
+      if (existingCodes && code && existingCodes.has(code) && !errors['externalCode']) {
+        const msg = '该外部编码已存在于数据库（历史重复）';
+        errors['externalCode'] = msg;
+        if (!newErrorMap[row.id]) newErrorMap[row.id] = [];
+        newErrorMap[row.id].push({ row: rowNum, field: 'externalCode', msg });
       }
 
       return {
@@ -157,13 +152,11 @@ export const useImportStore = create<ImportState>((set, get) => ({
   setErrors: (rowId, field, msg) => {
     set((state) => {
       const newRows = state.rows.map((row) => {
-        if (row.id === rowId) {
-          const newErrors = { ...row.errors };
-          if (msg) newErrors[field] = msg;
-          else delete newErrors[field];
-          return { ...row, errors: newErrors };
-        }
-        return row;
+        if (row.id !== rowId) return row;
+        const newErrors = { ...row.errors };
+        if (msg) newErrors[field] = msg;
+        else delete newErrors[field];
+        return { ...row, errors: newErrors };
       });
       return { rows: newRows };
     });

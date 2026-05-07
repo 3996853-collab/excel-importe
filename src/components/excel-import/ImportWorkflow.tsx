@@ -98,8 +98,23 @@ export function ImportWorkflow() {
       }));
       saveTemplate(hash, mappingArray);
 
-      const mappedHeaders = pendingData.headers.map(h => mappings[h] || h);
-      setImportData(mappedHeaders, pendingData.rows, pendingData.totalRows);
+      // Filter out ignored columns and map to system fields
+      const targetHeaders: string[] = [];
+      const sourceIndices: number[] = [];
+
+      pendingData.headers.forEach((header, idx) => {
+        const target = mappings[header];
+        if (target && target !== 'ignore') {
+          targetHeaders.push(target);
+          sourceIndices.push(idx);
+        }
+      });
+
+      const mappedRows = pendingData.rows.map(row => 
+        sourceIndices.map(idx => row[idx])
+      );
+
+      setImportData(targetHeaders, mappedRows, pendingData.totalRows);
 
       setShowMapping(false);
       setPendingData(null);
@@ -318,6 +333,10 @@ export function ImportWorkflow() {
         open={showMapping}
         headers={pendingData?.headers || []}
         onConfirm={handleMappingConfirm}
+        onCancel={() => {
+          setShowMapping(false);
+          setPendingData(null);
+        }}
       />
     </div>
   );

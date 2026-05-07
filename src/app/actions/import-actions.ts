@@ -4,10 +4,12 @@ import { genericImportSchema } from '@/schemas/import-schema';
 import { nanoid } from 'nanoid';
 
 // ---------------------------------------------------------------------------
-// In-memory store (replace with real DB in production)
+// In-memory store (persists across hot-reloads in dev using globalThis)
 // In production: import { sql } from '@vercel/postgres'
 // ---------------------------------------------------------------------------
-let mockHistory: any[] = [];
+const globalForMock = global as unknown as { mockHistory: any[] };
+let mockHistory = globalForMock.mockHistory || [];
+if (process.env.NODE_ENV !== 'production') globalForMock.mockHistory = mockHistory;
 
 // ---------------------------------------------------------------------------
 // fetchHistory — supports search, filter, pagination
@@ -90,8 +92,16 @@ export async function submitImport(data: any[]): Promise<{
 
   // Step 1: server-side validation (all rows)
   const validatedData: any[] = [];
+  const targetFields = Object.keys(genericImportSchema.shape);
+
   for (const row of data) {
-    const result = genericImportSchema.safeParse(row);
+    // Defensively ensure all fields exist so we get 'empty' errors instead of 'undefined' errors
+    const dataToValidate = { ...row };
+    targetFields.forEach(f => {
+      if (dataToValidate[f] === undefined) dataToValidate[f] = '';
+    });
+
+    const result = genericImportSchema.safeParse(dataToValidate);
     if (!result.success) {
       failedRows.push({
         externalCode: row.externalCode ?? '（未知）',

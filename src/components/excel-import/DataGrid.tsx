@@ -1,7 +1,7 @@
 
 'use client';
 
-import React, { useMemo, useRef, useCallback } from 'react';
+import React, { useMemo } from 'react';
 import {
   useReactTable,
   getCoreRowModel,
@@ -12,6 +12,19 @@ import { useImportStore } from '@/store/useImportStore';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '@/components/ui/tooltip';
+import {
   Table,
   TableBody,
   TableCell,
@@ -19,121 +32,87 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipTrigger,
-} from '@/components/ui/tooltip';
 import { AlertCircle, Trash2, Plus } from 'lucide-react';
 import { getFieldLabel } from '@/lib/field-labels';
+import { TEMPERATURE_OPTIONS } from '@/schemas/import-schema';
 
 export function DataGrid() {
-  const { rows, headers, updateCell, validateAll, addRow, deleteRow } = useImportStore();
-
-  // Flat list of all cell input refs for Tab navigation: [rowIdx][colIdx]
-  const cellRefs = useRef<(HTMLInputElement | null)[][]>([]);
-
-  const focusCell = useCallback((rowIdx: number, colIdx: number) => {
-    const row = cellRefs.current[rowIdx];
-    if (row && row[colIdx]) {
-      row[colIdx]!.focus();
-    }
-  }, []);
-
-  const handleTabKeyDown = useCallback(
-    (e: React.KeyboardEvent, rowIdx: number, colIdx: number) => {
-      if (e.key === 'Tab') {
-        e.preventDefault();
-        const direction = e.shiftKey ? -1 : 1;
-        const totalCols = headers.length;
-        const totalRows = rows.length;
-
-        let nextCol = colIdx + direction;
-        let nextRow = rowIdx;
-
-        if (nextCol >= totalCols) {
-          nextCol = 0;
-          nextRow += 1;
-        } else if (nextCol < 0) {
-          nextCol = totalCols - 1;
-          nextRow -= 1;
-        }
-
-        if (nextRow >= 0 && nextRow < totalRows) {
-          focusCell(nextRow, nextCol);
-        }
-      }
-    },
-    [headers.length, rows.length, focusCell]
-  );
+  const { rows, headers, updateCell, addRow, deleteRow } = useImportStore();
 
   const columns = useMemo<ColumnDef<any>[]>(() => {
-    // Ensure refs array is sized correctly
-    cellRefs.current = rows.map((_, rIdx) =>
-      headers.map((_, cIdx) => cellRefs.current[rIdx]?.[cIdx] ?? null)
-    );
-
     const cols: ColumnDef<any>[] = [
       {
         id: 'rowNum',
         header: '#',
         size: 50,
         cell: ({ row }) => (
-          <span className="text-xs text-muted-foreground px-2 select-none">
+          <div className="text-xs text-muted-foreground text-center">
             {row.index + 1}
-          </span>
+          </div>
         ),
       },
-      ...headers.map((header, colIdx) => ({
+      ...headers.map((header) => ({
+        id: header,
         accessorKey: header,
         header: () => (
-          <span title={header}>
+          <span className="font-bold text-xs">
             {getFieldLabel(header)}
           </span>
         ),
         cell: ({ row, getValue }: any) => {
           const value = getValue();
           const rowId = (row.original as any).id;
-          const rowIdx = row.index;
           const error = (row.original as any).errors[header];
 
           return (
-            <div className="relative group">
-              <EditableCell
-                value={value}
-                inputRef={(el) => {
-                  if (!cellRefs.current[rowIdx]) cellRefs.current[rowIdx] = [];
-                  cellRefs.current[rowIdx][colIdx] = el;
-                }}
-                onBlur={(val) => {
-                  updateCell(rowId, header, val);
-                  validateAll();
-                }}
-                onTabKeyDown={(e) => handleTabKeyDown(e, rowIdx, colIdx)}
-                hasError={!!error}
-              />
+            <div className="relative group flex items-center min-h-[40px] w-full border-r last:border-r-0">
+              {header === 'temperature' ? (
+                <Select
+                  value={value || undefined}
+                  onValueChange={(val) => updateCell(rowId, header, val)}
+                >
+                  <SelectTrigger className={`border-none h-9 w-full rounded-none px-2 text-sm focus:ring-0 ${error ? 'bg-destructive/10' : ''}`}>
+                    <SelectValue placeholder="选择温层" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {TEMPERATURE_OPTIONS.map(opt => (
+                      <SelectItem key={opt} value={opt}>{opt}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              ) : (
+                <EditableCell
+                  value={value}
+                  onBlur={(val) => updateCell(rowId, header, val)}
+                  hasError={!!error}
+                />
+              )}
+              
               {error && (
-                <Tooltip>
-                  <TooltipTrigger>
-                    <div className="absolute right-1.5 top-1/2 -translate-y-1/2 text-destructive cursor-help z-10">
-                      <AlertCircle className="w-3.5 h-3.5" />
-                    </div>
-                  </TooltipTrigger>
-                  <TooltipContent side="top" className="max-w-[200px]">
-                    <p className="text-xs">{error}</p>
-                  </TooltipContent>
-                </Tooltip>
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger>
+                      <div className="absolute right-1 top-1/2 -translate-y-1/2 text-destructive cursor-help z-10 p-1">
+                        <AlertCircle className="w-3.5 h-3.5" />
+                      </div>
+                    </TooltipTrigger>
+                    <TooltipContent side="top" className="max-w-[200px] z-50">
+                      <p className="text-xs">{error}</p>
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
               )}
             </div>
           );
         },
+        size: 150,
       })),
       {
         id: 'actions',
         header: '操作',
         size: 60,
         cell: ({ row }: any) => (
-          <div className="flex justify-center">
+          <div className="flex justify-center items-center w-full">
             <Button
               variant="ghost"
               size="icon"
@@ -147,7 +126,7 @@ export function DataGrid() {
       },
     ];
     return cols;
-  }, [headers, rows, updateCell, validateAll, deleteRow, handleTabKeyDown]);
+  }, [headers, updateCell, deleteRow]);
 
   const table = useReactTable({
     data: rows,
@@ -156,57 +135,65 @@ export function DataGrid() {
   });
 
   return (
-    <div className="space-y-3">
-      {/* Stats bar */}
+    <div className="space-y-3 w-full">
       <div className="flex items-center justify-between text-xs text-muted-foreground px-1">
         <span>共 <strong>{rows.length}</strong> 行数据</span>
-        <span>
-          {rows.filter(r => r.status === 'valid').length} 行正常 /&nbsp;
-          {rows.filter(r => r.status === 'invalid').length} 行有误
-        </span>
+        <div className="flex gap-4">
+          <span className="flex items-center gap-1">
+            <div className="w-2 h-2 rounded-full bg-green-500" />
+            {rows.filter(r => r.status === 'valid').length} 条正常
+          </span>
+          <span className="flex items-center gap-1">
+            <div className="w-2 h-2 rounded-full bg-destructive" />
+            {rows.filter(r => r.status === 'invalid').length} 条有误
+          </span>
+        </div>
       </div>
 
-      <div className="rounded-lg border overflow-auto max-h-[580px] shadow-sm">
-        <Table className="relative min-w-max">
-          <TableHeader className="sticky top-0 bg-card z-20 shadow-sm">
+      <div className="rounded-lg border shadow-sm bg-card overflow-auto max-h-[600px]">
+        <Table className="relative w-full border-collapse min-w-max">
+          <TableHeader className="sticky top-0 bg-muted/80 backdrop-blur-sm z-20 shadow-sm">
             {table.getHeaderGroups().map((headerGroup) => (
               <TableRow key={headerGroup.id}>
                 {headerGroup.headers.map((header) => (
                   <TableHead
                     key={header.id}
-                    className="whitespace-nowrap font-bold text-xs h-10 px-2"
-                    style={{ width: header.column.columnDef.size }}
+                    className="h-10 px-0 border-r last:border-r-0"
+                    style={{ width: header.getSize() }}
                   >
-                    {flexRender(header.column.columnDef.header, header.getContext())}
+                    <div className="px-2">{flexRender(header.column.columnDef.header, header.getContext())}</div>
                   </TableHead>
                 ))}
               </TableRow>
             ))}
           </TableHeader>
           <TableBody>
-            {table.getRowModel().rows.length === 0 ? (
+            {rows.length === 0 ? (
               <TableRow>
                 <TableCell colSpan={columns.length} className="h-24 text-center text-muted-foreground">
                   暂无数据
                 </TableCell>
               </TableRow>
             ) : (
-              table.getRowModel().rows.map((row) => (
-                <TableRow
-                  key={row.id}
-                  className={
-                    (row.original as any).status === 'invalid'
-                      ? 'bg-destructive/5 hover:bg-destructive/10'
-                      : 'hover:bg-muted/40'
-                  }
-                >
-                  {row.getVisibleCells().map((cell) => (
-                    <TableCell key={cell.id} className="p-0 border-r last:border-r-0 h-10">
-                      {flexRender(cell.column.columnDef.cell, cell.getContext())}
-                    </TableCell>
-                  ))}
-                </TableRow>
-              ))
+              table.getRowModel().rows.map((row) => {
+                const isInvalid = (row.original as any).status === 'invalid';
+                return (
+                  <TableRow
+                    key={row.id}
+                    className={isInvalid ? 'bg-destructive/5 hover:bg-destructive/10' : ''}
+                  >
+                    {row.getVisibleCells().map((cell) => (
+                      <TableCell 
+                        key={cell.id} 
+                        className="p-0 border-r last:border-r-0"
+                        style={{ width: cell.column.columnDef.size }}
+                      >
+                        {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                      </TableCell>
+                    ))}
+                  </TableRow>
+                );
+              })
             )}
           </TableBody>
         </Table>
@@ -214,7 +201,7 @@ export function DataGrid() {
 
       <Button
         variant="outline"
-        className="w-full border-dashed text-muted-foreground hover:text-foreground h-9"
+        className="w-full border-dashed text-muted-foreground hover:text-foreground h-10"
         onClick={addRow}
       >
         <Plus className="w-4 h-4 mr-2" />
@@ -227,29 +214,24 @@ export function DataGrid() {
 interface EditableCellProps {
   value: any;
   onBlur: (val: string) => void;
-  onTabKeyDown: (e: React.KeyboardEvent<HTMLInputElement>) => void;
   hasError: boolean;
-  inputRef: (el: HTMLInputElement | null) => void;
 }
 
-function EditableCell({ value, onBlur, onTabKeyDown, hasError, inputRef }: EditableCellProps) {
+function EditableCell({ value, onBlur, hasError }: EditableCellProps) {
   const [val, setVal] = React.useState(String(value ?? ''));
 
-  // Sync external value changes (e.g., when store is reset)
   React.useEffect(() => {
     setVal(String(value ?? ''));
   }, [value]);
 
   return (
     <Input
-      ref={inputRef}
       value={val}
       onChange={(e) => setVal(e.target.value)}
       onBlur={() => onBlur(val)}
-      onKeyDown={onTabKeyDown}
       className={`
-        border-none focus-visible:ring-1 focus-visible:ring-primary rounded-none h-10 w-full px-2.5 text-sm
-        ${hasError ? 'bg-destructive/10 text-destructive pr-7' : 'bg-transparent'}
+        border-none focus-visible:ring-1 focus-visible:ring-primary rounded-none h-9 w-full px-2.5 text-sm
+        ${hasError ? 'bg-destructive/5 text-destructive font-medium pr-8' : 'bg-transparent'}
       `}
     />
   );

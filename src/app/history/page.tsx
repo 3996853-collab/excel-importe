@@ -56,7 +56,7 @@ export default function HistoryPage() {
   return (
     <div className="container mx-auto py-8 space-y-6">
       <div className="flex items-center justify-between">
-        <h1 className="text-3xl font-bold tracking-tight">导入历史</h1>
+        <h1 className="text-3xl font-bold tracking-tight">已导入运单</h1>
         <Badge variant="outline" className="text-sm">
           共 {pagination.total || 0} 条记录
         </Badge>
@@ -125,7 +125,7 @@ export default function HistoryPage() {
             ) : data.length === 0 ? (
               <TableRow>
                 <TableCell colSpan={7} className="h-24 text-center text-muted-foreground">
-                  暂无历史记录
+                  暂无运单记录
                 </TableCell>
               </TableRow>
             ) : (
@@ -136,7 +136,7 @@ export default function HistoryPage() {
                   <TableCell>{row.receiverPhone}</TableCell>
                   <TableCell>{row.weight} kg</TableCell>
                   <TableCell>{row.quantity} 件</TableCell>
-                  <TableCell>{row.temperature} °C</TableCell>
+                  <TableCell>{row.temperature}</TableCell>
                   <TableCell className="text-muted-foreground text-xs">
                     {format(new Date(row.createdAt), 'yyyy-MM-dd HH:mm')}
                   </TableCell>

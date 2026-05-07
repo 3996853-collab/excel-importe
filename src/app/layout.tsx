@@ -39,7 +39,7 @@ export default function RootLayout({
                   </Link>
                   <nav className="hidden md:flex items-center gap-6 text-sm font-medium">
                     <Link href="/" className="transition-colors hover:text-primary">数据导入</Link>
-                    <Link href="/history" className="transition-colors hover:text-primary">历史列表</Link>
+                    <Link href="/history" className="transition-colors hover:text-primary">已导入运单</Link>
                   </nav>
                 </div>
                 <div className="flex items-center gap-4">
