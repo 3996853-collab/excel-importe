@@ -55,7 +55,7 @@ export function DataGrid() {
         ),
       },
       ...headers.map((header) => ({
-        id: header,
+        id: `col-${header}`,
         accessorFn: (row: any) => row.data?.[header],
         header: () => (
           <span className="font-bold text-xs">

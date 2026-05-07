@@ -39,13 +39,15 @@ export async function fetchHistory(params: {
       const offset = (page - 1) * pageSize;
       const searchQuery = `%${search}%`;
       const codeQuery = `%${externalCode}%`;
+      const dbStartDate = startDate || null;
+      const dbEndDate = endDate || null;
 
       const { rows } = await sql`
         SELECT * FROM waybills
         WHERE (receiver_name ILIKE ${searchQuery} OR ${search} = '')
         AND (external_code ILIKE ${codeQuery} OR ${externalCode} = '')
-        AND (${startDate} = '' OR created_at >= CAST(NULLIF(${startDate}, '') AS timestamp))
-        AND (${endDate} = '' OR created_at <= CAST(NULLIF(${endDate}, '') AS timestamp) + interval '1 day')
+        AND (${dbStartDate}::timestamp IS NULL OR created_at >= ${dbStartDate}::timestamp)
+        AND (${dbEndDate}::timestamp IS NULL OR created_at <= (${dbEndDate}::timestamp + interval '1 day'))
         ORDER BY created_at DESC
         LIMIT ${pageSize} OFFSET ${offset}
       `;
@@ -54,8 +56,8 @@ export async function fetchHistory(params: {
         SELECT count(*) FROM waybills
         WHERE (receiver_name ILIKE ${searchQuery} OR ${search} = '')
         AND (external_code ILIKE ${codeQuery} OR ${externalCode} = '')
-        AND (${startDate} = '' OR created_at >= CAST(NULLIF(${startDate}, '') AS timestamp))
-        AND (${endDate} = '' OR created_at <= CAST(NULLIF(${endDate}, '') AS timestamp) + interval '1 day')
+        AND (${dbStartDate}::timestamp IS NULL OR created_at >= ${dbStartDate}::timestamp)
+        AND (${dbEndDate}::timestamp IS NULL OR created_at <= (${dbEndDate}::timestamp + interval '1 day'))
       `;
       
       const total = parseInt(countResult.rows[0].count);
@@ -139,9 +141,13 @@ export async function submitImport(data: any[]) {
           ) ON CONFLICT (external_code) DO NOTHING
         `;
         successRows.push(d);
-      } catch (e) {
+      } catch (e: any) {
         console.error('Database write failed for row:', row.externalCode, e);
-        failedRows.push({ externalCode: row.externalCode, reason: '数据库写入失败' });
+        const errorMessage = e.message || '数据库写入失败';
+        failedRows.push({ 
+          externalCode: row.externalCode || '未知', 
+          reason: errorMessage.includes('unique constraint') ? '外部编码已存在' : errorMessage 
+        });
       }
     } else {
       const newEntry = { ...result.data, id: nanoid(), createdAt: new Date().toISOString() };

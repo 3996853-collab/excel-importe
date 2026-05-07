@@ -93,20 +93,18 @@ export default function HistoryPage() {
                 onChange={(e) => setExternalCode(e.target.value)}
               />
             </div>
-            <div className="flex-1 min-w-[200px] relative">
-              <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-              <Input 
+            <div className="flex-1 min-w-[300px] flex items-center bg-background border rounded-md px-3 h-10 gap-2 focus-within:ring-2 focus-within:ring-primary">
+              <Calendar className="w-4 h-4 text-muted-foreground shrink-0" />
+              <input 
                 type="date"
-                className="pl-9"
+                className="bg-transparent border-none outline-none text-sm w-full"
                 value={startDate}
                 onChange={(e) => setStartDate(e.target.value)}
               />
-            </div>
-            <div className="flex-1 min-w-[200px] relative">
-              <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-              <Input 
+              <span className="text-muted-foreground">-</span>
+              <input 
                 type="date"
-                className="pl-9"
+                className="bg-transparent border-none outline-none text-sm w-full"
                 value={endDate}
                 onChange={(e) => setEndDate(e.target.value)}
               />
