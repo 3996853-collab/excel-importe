@@ -142,8 +142,8 @@ export function MappingDialog({ headers, open, onConfirm, onCancel }: MappingDia
                 </div>
                 <Select
                   value={mappings[header] || 'ignore'}
-                  onValueChange={(val: string) =>
-                    setMappings((prev) => ({ ...prev, [header]: val }))
+                  onValueChange={(val: string | null) =>
+                    setMappings((prev) => ({ ...prev, [header]: val || 'ignore' }))
                   }
                 >
                   <SelectTrigger className={isIgnored ? 'border-dashed opacity-60' : ''}>
